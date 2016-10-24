@@ -1,9 +1,8 @@
-% THERMULATOR  models the temperature of a coffee cup over time with
-% Euler's method.
+% THERMULATOR  models the temperature of a coffee cup over time
 %{
 mat_matrix = [insulating_cond insulating_thick]
 %}
-function [t, T] = thermulator_ode45(init_time, final_time, mat_matrix)
+function [t, T] = thermulator_ode45(init_time, final_time, mat_matrix, desired_temp)
 
     %% Model Parameters
     thermos_r = 0.04; % thermos radius, in m
@@ -11,8 +10,8 @@ function [t, T] = thermulator_ode45(init_time, final_time, mat_matrix)
     
     init_temp = 370; % in K
     room_temp = 290; % in K
-    water_s_heat = 4186; % specific heat of coffee, in J/kg*K
-    water_density = 1000; % density of coffee, in kg/m^3
+    water_s_heat = 4186; % specific heat of water, in J/kg*K
+    water_density = 1000; % density of water, in kg/m^3
     
     %% Calculated Stuff
     function res = circ_area(radius)
@@ -40,11 +39,19 @@ function [t, T] = thermulator_ode45(init_time, final_time, mat_matrix)
     
     layer_info = [layer_thermal_cond, layer_cond_area, layer_thickness];
     
+    %% ODE45 Events
+    options = odeset('Events', @events);
+    function [value, isterminal, direction] = events(~, U)
+       value = U - temperatureToEnergy(desired_temp, water_heat_cap);
+       isterminal = 1; % terminate
+       direction = -1; % only if temp is decreasing
+    end
+    
     %% Anonymous Function for ode
     dUdt = @(ti, Ui) thermometer(ti, layer_info, (room_temp - energyToTemperature(Ui, water_heat_cap)));
     
     %% ODE45
-    [t, U] = ode45(dUdt, [init_time final_time], temperatureToEnergy(init_temp, water_heat_cap));
+    [t, U] = ode45(dUdt, [init_time final_time], temperatureToEnergy(init_temp, water_heat_cap), options);
     % convert to celsius temp
     T = energyToTemperature(U, water_heat_cap) - 273.15;
 end
