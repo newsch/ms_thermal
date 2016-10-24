@@ -1,34 +1,50 @@
 % THERMULATOR  models the temperature of a coffee cup over time with
-% Euler's method
-function [t, T] = thermulator_ode45(init_time, final_time, flow_func)
+% Euler's method.
+%{
+mat_matrix = [insulating_cond insulating_thick]
+%}
+function [t, T] = thermulator_ode45(init_time, final_time, mat_matrix)
 
     %% Model Parameters
-    cup_r = 0.04; % cup radius, in m
-    coffee_h = 0.15; % coffee height, in m
-    cup_t = 0.007; % cup thickmess, in m
+    thermos_r = 0.04; % thermos radius, in m
+    water_h = 0.15; % water height, in m
+    
     init_temp = 370; % in K
     room_temp = 290; % in K
-    coffee_s_heat = 4186; % specific heat of coffee, in J/kg*K
-    coffee_density = 1000; % density of coffee, in kg/m^3
-    cup_thermal_cond = 1.5; % in W/m*K
-    coffee_heat_transfer_c = 10; % 10-100, in W/m^2K
-    dt = 60; % time step, in seconds
+    water_s_heat = 4186; % specific heat of coffee, in J/kg*K
+    water_density = 1000; % density of coffee, in kg/m^3
     
     %% Calculated Stuff
-    cup_base_r = cup_r;
-    cup_wall_area = coffee_h * 2 * pi * cup_base_r;
-    cup_base_area = cup_base_r ^ 2 * pi;
-    cup_area = cup_wall_area + cup_base_area;
-    coffee_heat_cap = coffee_s_heat * cup_base_area * coffee_h * ...
-        coffee_density;
+    function res = circ_area(radius)
+        res = radius ^ 2 * pi;
+    end
+
+    function res = wall_area(radius, height)
+        res = height * 2 * pi * radius;
+    end
+
+    function res = cond_area(radius, height)
+        res = circ_area(radius) + wall_area(radius, height);
+    end
+
+    function res = heat_cap(radius, height, s_heat, density)
+        res = s_heat * circ_area(radius) * height * density;
+    end
+
+    water_heat_cap = heat_cap(thermos_r, water_h, water_s_heat, water_density);
+
+    layer_thermal_cond = mat_matrix(1);
+    layer_thickness = mat_matrix(2);
+    layer_radius = mat_matrix(2) + thermos_r;
+    layer_cond_area = cond_area(layer_radius, water_h);
     
-    %% Anonymous Function
-    dUdt = @(ti, Ui) flow_func(ti, cup_thermal_cond, cup_area, cup_t, ...
-        (room_temp - energyToTemperature(Ui, coffee_heat_cap)), ...
-        coffee_heat_transfer_c, cup_wall_area);
+    layer_info = [layer_thermal_cond, layer_cond_area, layer_thickness];
+    
+    %% Anonymous Function for ode
+    dUdt = @(ti, Ui) thermometer(ti, layer_info, (room_temp - energyToTemperature(Ui, water_heat_cap)));
     
     %% ODE45
-    [t, U] = ode45(dUdt, [init_time final_time], temperatureToEnergy(init_temp, coffee_heat_cap));
+    [t, U] = ode45(dUdt, [init_time final_time], temperatureToEnergy(init_temp, water_heat_cap));
     % convert to celsius temp
-    T = energyToTemperature(U, coffee_heat_cap) - 273.15;
+    T = energyToTemperature(U, water_heat_cap) - 273.15;
 end
