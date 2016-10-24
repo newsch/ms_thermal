@@ -1,14 +1,11 @@
 % THERMURUNNER  runs thermulator_euler and thermulator_ode45 and makes nice
 % plots
 Mats = [0.02, 0.01];
-xbash
-[time, temp] = thermulator_ode45(0, 30 * 60, Mats);
+times_to_reach = [300:10:350];
 
-hold on
-for i = 1:length(Mats)
-    plot(time / 60, temp(:,1), '.-')
-end
+mat_output = zeros(length(times_to_reach),2);
+    for j = 1:length(times_to_reach)
+       mat_output(j,:) = [times_to_reach(j) timeToReachTemp(Mats, times_to_reach(j))]
+    end
 
-title('Temp of Coffee over Time with ode45 Estimation')
-xlabel('Time (m)')
-ylabel(['Temperature (', char(176), 'C)'])
+plot(mat_output(:,1), mat_output(:,2), '-o')
